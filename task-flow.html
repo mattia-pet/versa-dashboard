@@ -1,0 +1,1155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nextboard - Task Flow</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #0f0f0f;
+            --bg-card: #1a1a1a;
+            --bg-hover: #252525;
+            --accent: #00d4aa;
+            --accent-dim: rgba(0, 212, 170, 0.1);
+            --warning: #ffaa00;
+            --danger: #ff4444;
+            --text: #ffffff;
+            --text-dim: #888888;
+            --border: #333333;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-dark);
+            color: var(--text);
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        /* Header */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--accent);
+        }
+
+        .logo span { color: var(--text-dim); font-weight: 400; }
+
+        .date-display {
+            color: var(--text-dim);
+            font-size: 0.9rem;
+        }
+
+        /* Stats bar */
+        .stats-bar {
+            display: flex;
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: var(--bg-card);
+            padding: 1rem 1.5rem;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            flex: 1;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--accent);
+        }
+
+        .stat-label {
+            font-size: 0.8rem;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* Main layout */
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            gap: 2rem;
+        }
+
+        /* Focus task - the main attraction */
+        .focus-section {
+            background: var(--bg-card);
+            border-radius: 16px;
+            border: 2px solid var(--accent);
+            padding: 2rem;
+        }
+
+        .focus-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .focus-badge {
+            background: var(--accent);
+            color: #000;
+            padding: 0.3rem 0.8rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .focus-priority {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .priority-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+
+        .priority-high { background: var(--danger); }
+        .priority-medium { background: var(--warning); }
+        .priority-low { background: var(--text-dim); }
+
+        .focus-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .focus-meta {
+            color: var(--text-dim);
+            font-size: 0.9rem;
+            margin-bottom: 1.5rem;
+        }
+
+        /* Email preview */
+        .email-preview {
+            background: #000;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            border: 1px solid var(--border);
+        }
+
+        .email-to {
+            font-size: 0.85rem;
+            color: var(--text-dim);
+            margin-bottom: 1rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .email-content {
+            font-family: 'Inter', sans-serif;
+            font-size: 0.95rem;
+            line-height: 1.7;
+            white-space: pre-wrap;
+        }
+
+        /* Action buttons */
+        .action-buttons {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .btn {
+            padding: 0.8rem 1.5rem;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: none;
+        }
+
+        .btn-approve {
+            background: var(--accent);
+            color: #000;
+            flex: 2;
+        }
+
+        .btn-approve:hover {
+            transform: scale(1.02);
+            box-shadow: 0 0 20px rgba(0, 212, 170, 0.4);
+        }
+
+        .btn-edit {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text);
+            flex: 1;
+        }
+
+        .btn-edit:hover { background: var(--bg-hover); }
+
+        .btn-skip {
+            background: transparent;
+            border: 1px solid var(--danger);
+            color: var(--danger);
+            flex: 1;
+        }
+
+        .btn-skip:hover { background: rgba(255, 68, 68, 0.1); }
+
+        .btn-delete {
+            background: transparent;
+            border: 1px solid #555;
+            color: #555;
+            padding: 0.8rem 1rem;
+            flex: 0;
+        }
+        .btn-delete:hover { color: var(--danger); border-color: var(--danger); }
+
+        /* Sidebar - task queue */
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .sidebar-section {
+            background: var(--bg-card);
+            border-radius: 12px;
+            padding: 1.25rem;
+            border: 1px solid var(--border);
+        }
+
+        .sidebar-title {
+            font-size: 0.85rem;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 1rem;
+        }
+
+        /* Task queue list */
+        .task-queue {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            max-height: 320px;
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: var(--border) transparent;
+        }
+
+        .queue-item {
+            padding: 0.75rem 1rem;
+            background: var(--bg-dark);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border-left: 3px solid transparent;
+        }
+
+        .queue-item:hover {
+            background: var(--bg-hover);
+        }
+
+        .queue-item.active {
+            border-left-color: var(--accent);
+            background: var(--accent-dim);
+        }
+
+        .queue-item-title {
+            font-size: 0.9rem;
+            font-weight: 500;
+            margin-bottom: 0.25rem;
+        }
+
+        .queue-item-meta {
+            font-size: 0.75rem;
+            color: var(--text-dim);
+        }
+
+        /* Roadmap preview */
+        .roadmap-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .roadmap-item:last-child { border-bottom: none; }
+
+        .roadmap-progress {
+            width: 100%;
+            height: 6px;
+            background: var(--bg-dark);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .roadmap-progress-bar {
+            height: 100%;
+            background: var(--accent);
+            border-radius: 3px;
+            transition: width 0.3s ease;
+        }
+
+        .roadmap-title {
+            font-size: 0.85rem;
+            flex: 1;
+        }
+
+        .roadmap-percent {
+            font-size: 0.75rem;
+            color: var(--accent);
+            font-weight: 600;
+        }
+
+        /* Agent cards */
+        .agents-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.75rem;
+        }
+
+        .agent-mini {
+            background: var(--bg-dark);
+            padding: 0.75rem;
+            border-radius: 8px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: 1px solid transparent;
+        }
+
+        .agent-mini:hover {
+            border-color: var(--accent);
+        }
+
+        .agent-mini.active {
+            border-color: var(--accent);
+            background: var(--accent-dim);
+        }
+
+        .agent-icon { font-size: 1.5rem; margin-bottom: 0.25rem; }
+        .agent-name { font-size: 0.75rem; font-weight: 500; }
+        .agent-status { font-size: 0.65rem; color: var(--accent); }
+
+        /* Keyboard hints */
+        .keyboard-hints {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--border);
+        }
+
+        .hint {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.75rem;
+            color: var(--text-dim);
+        }
+
+        .key {
+            background: var(--bg-dark);
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-family: monospace;
+            border: 1px solid var(--border);
+        }
+
+        /* Customer pills */
+        .customer-pills {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .customer-pill {
+            padding: 0.35rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            cursor: pointer;
+            border: 1px solid var(--border);
+            background: var(--bg-dark);
+            color: var(--text-dim);
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .customer-pill:hover {
+            border-color: var(--accent);
+            color: var(--text);
+        }
+
+        .customer-pill.active {
+            background: var(--accent-dim);
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .pill-count {
+            background: var(--border);
+            border-radius: 10px;
+            padding: 0 0.4rem;
+            font-size: 0.7rem;
+        }
+
+        .pill-tickets {
+            font-size: 0.65rem;
+            color: var(--warning);
+        }
+
+        /* Ticket modal */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.75);
+            z-index: 500;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+        }
+
+        .modal-box {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            width: 100%;
+            max-width: 860px;
+            max-height: 80vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.25rem 1.5rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .modal-header h3 { font-size: 1.1rem; font-weight: 600; }
+
+        .modal-close {
+            background: none;
+            border: none;
+            color: var(--text-dim);
+            font-size: 1.2rem;
+            cursor: pointer;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+        }
+        .modal-close:hover { background: var(--bg-hover); color: var(--text); }
+
+        .modal-body { overflow-y: auto; padding: 1.25rem 1.5rem; }
+
+        .modal-stats {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.25rem;
+        }
+
+        .modal-stat {
+            background: var(--bg-dark);
+            border-radius: 8px;
+            padding: 0.6rem 1rem;
+            font-size: 0.85rem;
+        }
+        .modal-stat span { color: var(--accent); font-weight: 700; margin-right: 0.3rem; }
+
+        .ticket-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+        }
+
+        .ticket-table th {
+            text-align: left;
+            padding: 0.6rem 0.75rem;
+            color: var(--text-dim);
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .ticket-table td {
+            padding: 0.75rem;
+            border-bottom: 1px solid #222;
+            vertical-align: top;
+        }
+
+        .ticket-table tr:hover td { background: var(--bg-hover); }
+
+        .ticket-id {
+            color: var(--accent);
+            font-weight: 600;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .ticket-id:hover { text-decoration: underline; }
+
+        .ticket-status {
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            white-space: nowrap;
+        }
+        .status-processing { background: rgba(0,212,170,0.15); color: var(--accent); }
+        .status-awaiting { background: rgba(255,170,0,0.15); color: var(--warning); }
+        .status-resolved { background: rgba(100,100,100,0.2); color: var(--text-dim); }
+
+        .ticket-title { max-width: 320px; }
+
+        /* Responsive */
+        @media (max-width: 1000px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+            .stats-bar {
+                flex-wrap: wrap;
+            }
+            .stat-card {
+                flex: 1 1 45%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="logo">Nextboard <span>// Task Flow</span></div>
+            <div class="date-display" id="dateDisplay">Loading...</div>
+        </header>
+
+        <!-- Stats -->
+        <div class="stats-bar">
+            <div class="stat-card">
+                <div class="stat-value" id="pendingCount">-</div>
+                <div class="stat-label">Pending Tasks</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="emailsCount">-</div>
+                <div class="stat-label">Emails to Approve</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="completedCount">0</div>
+                <div class="stat-label">Completed Today</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="highPriorityCount">-</div>
+                <div class="stat-label">High Priority</div>
+            </div>
+        </div>
+
+        <!-- Main grid -->
+        <div class="main-grid">
+            <!-- Ticket Panel (shown when customer with tickets is clicked) -->
+            <div id="ticketPanel" style="display:none" class="focus-section" style="padding:0">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+                    <div>
+                        <h3 id="ticketPanelTitle" style="font-size:1.1rem;font-weight:600"></h3>
+                        <div id="ticketPanelStats" style="display:flex;gap:0.75rem;margin-top:0.5rem"></div>
+                    </div>
+                    <button onclick="closeTicketPanel()" style="background:var(--bg-hover);border:1px solid var(--border);color:var(--text);padding:0.4rem 0.9rem;border-radius:6px;cursor:pointer;font-size:0.85rem">← Tasks</button>
+                </div>
+                <div id="ticketPanelContent" style="overflow-y:auto;max-height:calc(100vh - 320px)"></div>
+            </div>
+
+            <!-- Focus task -->
+            <div class="focus-section" id="focusSection">
+                <div class="focus-header">
+                    <span class="focus-badge">NEXT TASK</span>
+                    <div class="focus-priority">
+                        <span class="priority-dot priority-high"></span>
+                        <span id="focusPriority">HIGH</span>
+                    </div>
+                </div>
+
+                <h2 class="focus-title" id="focusTitle">Loading...</h2>
+                <p class="focus-meta" id="focusMeta">Loading task details...</p>
+
+                <div class="email-preview" id="emailPreview">
+                    <div class="email-to" id="emailTo">To: Loading...</div>
+                    <div class="email-content" id="emailContent">Loading proposed response...</div>
+                </div>
+
+                <div class="action-buttons">
+                    <button class="btn btn-approve" onclick="approveTask()">
+                        ✓ Approve & Send
+                    </button>
+                    <button class="btn btn-edit" onclick="editTask()">
+                        ✎ Edit
+                    </button>
+                    <button class="btn btn-skip" onclick="skipTask()">
+                        → Skip
+                    </button>
+                    <button class="btn btn-delete" onclick="deleteTask()" title="Remove from OPEN-ITEMS.md">
+                        🗑
+                    </button>
+                </div>
+
+                <div class="keyboard-hints">
+                    <span class="hint"><span class="key">Enter</span> Approve</span>
+                    <span class="hint"><span class="key">E</span> Edit</span>
+                    <span class="hint"><span class="key">S</span> Skip</span>
+                    <span class="hint"><span class="key">D</span> Delete</span>
+                    <span class="hint"><span class="key">↑↓</span> Navigate</span>
+                </div>
+            </div>
+
+            <!-- Sidebar -->
+            <div class="sidebar">
+                <!-- Task queue -->
+                <div class="sidebar-section">
+                    <div class="sidebar-title">Task Queue</div>
+                    <div class="task-queue" id="taskQueue">
+                        <div class="queue-item">Loading tasks...</div>
+                    </div>
+                </div>
+
+                <!-- Customers -->
+                <div class="sidebar-section">
+                    <div class="sidebar-title">Customers</div>
+                    <div class="customer-pills" id="customerPills">Loading...</div>
+                </div>
+
+                <!-- Agents -->
+                <div class="sidebar-section">
+                    <div class="sidebar-title">Your Agents</div>
+                    <div class="agents-grid" id="agentsGrid">
+                        <div class="agent-mini active">
+                            <div class="agent-icon">🤖</div>
+                            <div class="agent-name">SE-Bot</div>
+                            <div class="agent-status">LIVE</div>
+                        </div>
+                        <div class="agent-mini">
+                            <div class="agent-icon">📊</div>
+                            <div class="agent-name">Deal-Bot</div>
+                            <div class="agent-status">Ready</div>
+                        </div>
+                        <div class="agent-mini">
+                            <div class="agent-icon">✍️</div>
+                            <div class="agent-name">Content-Bot</div>
+                            <div class="agent-status">Ready</div>
+                        </div>
+                        <div class="agent-mini" onclick="createAgent()">
+                            <div class="agent-icon">➕</div>
+                            <div class="agent-name">New Agent</div>
+                            <div class="agent-status">Create</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Roadmap -->
+                <div class="sidebar-section">
+                    <div class="sidebar-title">Q1 Roadmap</div>
+                    <div id="roadmapList">
+                        <div class="roadmap-item">
+                            <div style="flex:1">
+                                <div class="roadmap-title">Loading...</div>
+                                <div class="roadmap-progress">
+                                    <div class="roadmap-progress-bar" style="width: 0%"></div>
+                                </div>
+                            </div>
+                            <span class="roadmap-percent">0%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Ticket Modal -->
+    <div id="ticketModal" class="modal-overlay" style="display:none" onclick="handleModalClick(event)">
+        <div class="modal-box">
+            <div class="modal-header">
+                <h3 id="modalTitle">Support Tickets</h3>
+                <button class="modal-close" onclick="closeModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="modal-stats" id="modalStats"></div>
+                <div id="modalContent">Loading...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API = window.location.origin;
+        let currentTask = null;
+        let allTasks = [];
+        let currentIndex = 0;
+
+        let activeCustomer = null;
+        const TICKET_CUSTOMERS = ['Backblaze', 'NM DOH']; // customers with Freshdesk company IDs
+
+        // Load data on start
+        document.addEventListener('DOMContentLoaded', async () => {
+            await loadDailySummary();
+            await loadTasks();
+            await loadRoadmap();
+            await loadCustomers();
+            setupKeyboardShortcuts();
+        });
+
+        async function loadDailySummary() {
+            try {
+                const res = await fetch(`${API}/api/daily-summary`);
+                const data = await res.json();
+                if (data.success) {
+                    document.getElementById('dateDisplay').textContent = data.summary.date;
+                    document.getElementById('emailsCount').textContent = data.summary.emails_pending;
+                    document.getElementById('highPriorityCount').textContent = data.summary.high_priority_count;
+                }
+            } catch (e) {
+                console.error('Failed to load summary:', e);
+            }
+        }
+
+        async function loadTasks() {
+            try {
+                const res = await fetch(`${API}/api/tasks`);
+                const data = await res.json();
+                if (data.success) {
+                    allTasks = data.tasks.filter(t => t.status !== 'completed' && t.status !== 'approved');
+                    _allTasksCache = [...allTasks];
+                    document.getElementById('pendingCount').textContent = data.stats.pending;
+                    document.getElementById('completedCount').textContent = data.stats.completed_today;
+
+                    renderTaskQueue();
+                    if (allTasks.length > 0) {
+                        selectTask(0);
+                    }
+                }
+            } catch (e) {
+                console.error('Failed to load tasks:', e);
+            }
+        }
+
+        function renderTaskQueue() {
+            const queue = document.getElementById('taskQueue');
+            queue.innerHTML = allTasks.map((task, idx) => `
+                <div class="queue-item ${idx === currentIndex ? 'active' : ''}" onclick="selectTask(${idx})">
+                    <div class="queue-item-title">${task.title}</div>
+                    <div class="queue-item-meta">${task.type} • ${task.priority}</div>
+                </div>
+            `).join('');
+        }
+
+        function selectTask(index) {
+            currentIndex = index;
+            currentTask = allTasks[index];
+            renderTaskQueue();
+            renderFocusTask();
+        }
+
+        function renderFocusTask() {
+            if (!currentTask) return;
+
+            document.getElementById('focusTitle').textContent = currentTask.title;
+            document.getElementById('focusMeta').textContent = currentTask.description;
+
+            const priorityDot = document.querySelector('.priority-dot');
+            priorityDot.className = `priority-dot priority-${currentTask.priority}`;
+            document.getElementById('focusPriority').textContent = currentTask.priority.toUpperCase();
+
+            const emailPreview = document.getElementById('emailPreview');
+            const approveBtn = document.querySelector('.btn-approve');
+
+            // Handle different task types
+            if (currentTask.type === 'email_response' && currentTask.proposed_response) {
+                emailPreview.style.display = 'block';
+                document.getElementById('emailTo').textContent = `To: ${currentTask.from || 'Unknown'}`;
+                document.getElementById('emailContent').textContent = currentTask.proposed_response;
+                approveBtn.innerHTML = '✓ Approve & Send';
+            } else if (currentTask.type === 'internal_action' && currentTask.action_items) {
+                emailPreview.style.display = 'block';
+                document.getElementById('emailTo').textContent = `Action Items (${currentTask.isrs ? currentTask.isrs.length : 0} ISRs)`;
+                document.getElementById('emailContent').textContent = currentTask.action_items.map(a => '• ' + a).join('\n');
+                approveBtn.innerHTML = '✓ Mark Complete';
+            } else if (currentTask.type === 'meeting_prep') {
+                emailPreview.style.display = 'block';
+                document.getElementById('emailTo').textContent = `Meeting: ${currentTask.meeting_time || 'TBD'}`;
+                document.getElementById('emailContent').textContent = currentTask.context || currentTask.description;
+                approveBtn.innerHTML = '✓ Ready for Meeting';
+            } else if (currentTask.type === 'follow_up') {
+                emailPreview.style.display = 'block';
+                document.getElementById('emailTo').textContent = `Follow-up: ${currentTask.source || 'Task'}`;
+                document.getElementById('emailContent').textContent = currentTask.context || currentTask.description;
+                approveBtn.innerHTML = '✓ Complete';
+            } else if (currentTask.type === 'email_review') {
+                emailPreview.style.display = 'block';
+                document.getElementById('emailTo').textContent = `From: ${currentTask.from || 'Unknown'}`;
+                document.getElementById('emailContent').textContent = 'Click to open email thread in Outlook';
+                approveBtn.innerHTML = '✓ Reviewed';
+            } else {
+                emailPreview.style.display = 'none';
+                approveBtn.innerHTML = '✓ Complete';
+            }
+        }
+
+        async function approveTask() {
+            if (!currentTask) return;
+
+            try {
+                const endpoint = currentTask.type === 'email_response' ? 'approve' : 'complete';
+                const res = await fetch(`${API}/api/tasks/${currentTask.id}/${endpoint}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showNotification(`✓ ${currentTask.title} - Done!`);
+                    await loadTasks();
+                }
+            } catch (e) {
+                console.error('Failed to approve:', e);
+            }
+        }
+
+        function editTask() {
+            if (!currentTask || !currentTask.proposed_response) return;
+
+            const newResponse = prompt('Edit response:', currentTask.proposed_response);
+            if (newResponse && newResponse !== currentTask.proposed_response) {
+                fetch(`${API}/api/tasks/${currentTask.id}/edit`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ proposed_response: newResponse })
+                }).then(() => {
+                    currentTask.proposed_response = newResponse;
+                    renderFocusTask();
+                    showNotification('Response updated');
+                });
+            }
+        }
+
+        async function skipTask() {
+            if (!currentTask) return;
+
+            try {
+                const res = await fetch(`${API}/api/tasks/${currentTask.id}/skip`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ until: 'later' })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showNotification(`Skipped: ${currentTask.title}`);
+                    await loadTasks();
+                }
+            } catch (e) {
+                console.error('Failed to skip:', e);
+            }
+        }
+
+        async function deleteTask() {
+            if (!currentTask) return;
+            try {
+                const res = await fetch(`${API}/api/tasks/${currentTask.id}/delete`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showNotification(`🗑 Rimosso: ${currentTask.title}`);
+                    await loadTasks();
+                }
+            } catch (e) {
+                console.error('Failed to delete:', e);
+            }
+        }
+
+        async function loadRoadmap() {
+            try {
+                const res = await fetch(`${API}/api/roadmap`);
+                const data = await res.json();
+                if (data.success && data.roadmap.q1_2026) {
+                    const list = document.getElementById('roadmapList');
+                    list.innerHTML = data.roadmap.q1_2026.goals.map(goal => `
+                        <div class="roadmap-item">
+                            <div style="flex:1">
+                                <div class="roadmap-title">${goal.title}</div>
+                                <div class="roadmap-progress">
+                                    <div class="roadmap-progress-bar" style="width: ${goal.progress}%"></div>
+                                </div>
+                            </div>
+                            <span class="roadmap-percent">${goal.progress}%</span>
+                        </div>
+                    `).join('');
+                }
+            } catch (e) {
+                console.error('Failed to load roadmap:', e);
+            }
+        }
+
+        async function loadCustomers() {
+            try {
+                const res = await fetch(`${API}/api/customers`);
+                const data = await res.json();
+                if (!data.success) return;
+                const container = document.getElementById('customerPills');
+                container.innerHTML = data.customers.map(c => {
+                    const hasTickets = TICKET_CUSTOMERS.includes(c.name);
+                    return `<div class="customer-pill" id="pill-${c.name}" onclick="handleCustomerClick('${c.name}')">
+                        ${c.name}
+                        <span class="pill-count">${c.task_count}</span>
+                        ${hasTickets ? '<span class="pill-tickets">🎫</span>' : ''}
+                    </div>`;
+                }).join('');
+            } catch(e) { console.error('loadCustomers', e); }
+        }
+
+        let _allTasksCache = null;
+
+        // Normalize customer name variants (e.g. "NAF (New America Funding)" → "NAF")
+        function customerMatches(task, name) {
+            const c = (task.customer || '').trim();
+            const s = (task.source || '').trim();
+            if (!c && !s) return false;
+            // match esatto
+            if (c === name || s === name) return true;
+            // match prefisso: "NAF (New America Funding)".startsWith("NAF")
+            if (c && c.startsWith(name + ' ')) return true;
+            if (s && s.startsWith(name + ' ')) return true;
+            // match inverso: "NAF".startsWith("NAF") già coperto
+            return false;
+        }
+
+        function handleCustomerClick(name) {
+            showCustomerPanel(name);
+        }
+
+        async function showCustomerPanel(name) {
+            // Marca pill attiva
+            document.querySelectorAll('.customer-pill').forEach(p => p.classList.remove('active'));
+            document.getElementById(`pill-${name}`)?.classList.add('active');
+
+            // Mostra pannello sinistro
+            document.getElementById('focusSection').style.display = 'none';
+            document.getElementById('ticketModal').style.display = 'none';
+            const panel = document.getElementById('ticketPanel');
+            panel.style.display = 'block';
+
+            // Also filter the right-side task queue for this customer
+            if (!_allTasksCache) _allTasksCache = [...allTasks];
+            allTasks = _allTasksCache.filter(t => customerMatches(t, name));
+            currentIndex = 0;
+            renderTaskQueue();
+
+            // Filter tasks for this customer
+            const cache = _allTasksCache;
+            const customerTasks = cache.filter(t => customerMatches(t, name));
+
+            // Header
+            document.getElementById('ticketPanelTitle').textContent = `${name}`;
+
+            // Tasks section
+            const tasksHtml = customerTasks.length > 0 ? `
+                <div style="margin-bottom:1.5rem">
+                    <div style="font-size:0.8rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:0.75rem">
+                        Open Tasks (${customerTasks.length})
+                    </div>
+                    ${customerTasks.map((t, i) => `
+                        <div style="padding:0.6rem 0.75rem;background:var(--bg-dark);border-radius:6px;margin-bottom:0.4rem;
+                                    border-left:3px solid ${t.priority==='high'?'var(--danger)':t.priority==='medium'?'var(--warning)':'var(--text-dim)'}">
+                            <div style="font-size:0.85rem;font-weight:500">${t.title}</div>
+                            <div style="font-size:0.72rem;color:var(--text-dim);margin-top:0.2rem">${t.source || ''}</div>
+                        </div>
+                    `).join('')}
+                </div>
+            ` : `<div style="color:var(--text-dim);font-size:0.9rem;margin-bottom:1.5rem">No open tasks</div>`;
+
+            // Stats
+            const highCount = customerTasks.filter(t => t.priority === 'high').length;
+            document.getElementById('ticketPanelStats').innerHTML = `
+                <div class="modal-stat"><span>${customerTasks.length}</span>Tasks</div>
+                ${highCount > 0 ? `<div class="modal-stat"><span style="color:var(--danger)">${highCount}</span>High</div>` : ''}
+            `;
+
+            // Tickets section (only for customers with ticket integration)
+            if (TICKET_CUSTOMERS.includes(name)) {
+                document.getElementById('ticketPanelContent').innerHTML = tasksHtml + '<div style="color:var(--text-dim);font-size:0.8rem;margin-bottom:0.5rem">Loading tickets...</div>';
+                try {
+                    const res = await fetch(`${API}/api/customers/${name}/tickets`);
+                    const data = await res.json();
+                    const tickets = data.tickets || [];
+                    const overdue = tickets.filter(t => t.status && t.status.includes('OVERDUE')).length;
+                    const pending = tickets.filter(t => t.status === 'Pending').length;
+                    const open = tickets.filter(t => t.status === 'Open').length;
+
+                    // Update stats with ticket counts
+                    document.getElementById('ticketPanelStats').innerHTML = `
+                        <div class="modal-stat"><span>${customerTasks.length}</span>Tasks</div>
+                        <div class="modal-stat"><span>${tickets.length}</span>Tickets</div>
+                        ${overdue > 0 ? `<div class="modal-stat"><span style="color:var(--danger)">${overdue}</span>OVERDUE</div>` : ''}
+                        ${pending > 0 ? `<div class="modal-stat"><span style="color:var(--warning)">${pending}</span>Pending</div>` : ''}
+                    `;
+
+                    const cachedAt = data.cached_at ? `<span style="color:var(--text-dim);font-size:0.7rem;margin-left:0.5rem">cached ${data.cached_at}</span>` : '';
+                    const refreshBtn = `<button onclick="refreshTickets('${name}')" style="background:none;border:1px solid var(--border);color:var(--text-dim);padding:0.2rem 0.5rem;border-radius:4px;cursor:pointer;font-size:0.72rem;margin-left:0.5rem">↻ Refresh</button>`;
+
+                    const ticketTable = tickets.length > 0 ? `
+                        <div style="font-size:0.8rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:0.75rem;display:flex;align-items:center">
+                            Support Tickets (${tickets.length})${cachedAt}${refreshBtn}
+                        </div>
+                        <table class="ticket-table">
+                            <thead><tr><th>ID</th><th>Title</th><th>Status</th><th>Priority</th><th>Requester</th><th>Note</th></tr></thead>
+                            <tbody>
+                                ${tickets.map(t => {
+                                    const s = t.status || '';
+                                    const cls = s.includes('OVERDUE') ? 'status-awaiting' : s === 'Open' ? 'status-processing' : 'status-awaiting';
+                                    const noteStyle = s.includes('OVERDUE') ? 'color:var(--danger)' : t.note && t.note.includes('Overdue') ? 'color:var(--danger)' : '';
+                                    const priColor = t.priority === 'High' || t.priority === 'Urgent' ? 'var(--danger)' : t.priority === 'Medium' ? 'var(--warning)' : 'var(--text-dim)';
+                                    return `<tr>
+                                        <td><span class="ticket-id" onclick="openTicket(${t.id})">#${t.id}</span></td>
+                                        <td class="ticket-title">${t.title}</td>
+                                        <td><span class="ticket-status ${cls}">${t.status}</span></td>
+                                        <td style="font-size:0.75rem;color:${priColor};font-weight:600">${t.priority||''}</td>
+                                        <td style="font-size:0.75rem;color:var(--text-dim)">${t.opened_by||''}</td>
+                                        <td style="font-size:0.75rem;${noteStyle}">${t.note||''}</td>
+                                    </tr>`;
+                                }).join('')}
+                            </tbody>
+                        </table>` : `<div style="color:var(--text-dim)">No open tickets${refreshBtn}</div>`;
+
+                    document.getElementById('ticketPanelContent').innerHTML = tasksHtml + ticketTable;
+                } catch(e) {
+                    document.getElementById('ticketPanelContent').innerHTML = tasksHtml + '<div style="color:var(--danger)">Failed to load tickets</div>';
+                }
+            } else {
+                document.getElementById('ticketPanelContent').innerHTML = tasksHtml;
+            }
+        }
+
+        function openTicket(id) {
+            window.open(`https://support.versa-networks.com/a/tickets/${id}`, '_blank');
+        }
+
+        async function refreshTickets(name) {
+            await fetch(`${API}/api/customers/${name}/tickets/refresh`, {method: 'POST'});
+            setTimeout(() => showCustomerPanel(name), 2000); // re-render after 2s
+        }
+
+        function closeTicketPanel() {
+            document.getElementById('ticketPanel').style.display = 'none';
+            document.getElementById('focusSection').style.display = 'block';
+            document.querySelectorAll('.customer-pill').forEach(p => p.classList.remove('active'));
+            // Ripristina task queue completa
+            if (_allTasksCache) {
+                allTasks = [..._allTasksCache];
+                currentIndex = 0;
+                renderTaskQueue();
+                if (allTasks.length > 0) selectTask(0);
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('ticketModal').style.display = 'none';
+        }
+
+        function handleModalClick(e) {
+            if (e.target === document.getElementById('ticketModal')) closeModal();
+        }
+
+        function createAgent() {
+            const name = prompt('Agent name:');
+            if (!name) return;
+            const personality = prompt('Agent personality:');
+            if (!personality) return;
+
+            fetch(`${API}/api/agents/create`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, personality, traits: [] })
+            }).then(res => res.json()).then(data => {
+                if (data.success) {
+                    showNotification(`Agent "${name}" created!`);
+                }
+            });
+        }
+
+        function setupKeyboardShortcuts() {
+            document.addEventListener('keydown', (e) => {
+                if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+                switch(e.key) {
+                    case 'Enter':
+                        approveTask();
+                        break;
+                    case 'e':
+                    case 'E':
+                        editTask();
+                        break;
+                    case 's':
+                    case 'S':
+                        skipTask();
+                        break;
+                    case 'd':
+                    case 'D':
+                        deleteTask();
+                        break;
+                    case 'ArrowUp':
+                        if (currentIndex > 0) selectTask(currentIndex - 1);
+                        break;
+                    case 'ArrowDown':
+                        if (currentIndex < allTasks.length - 1) selectTask(currentIndex + 1);
+                        break;
+                }
+            });
+        }
+
+        function showNotification(message) {
+            // Simple notification - could be enhanced
+            const existing = document.querySelector('.notification');
+            if (existing) existing.remove();
+
+            const notif = document.createElement('div');
+            notif.className = 'notification';
+            notif.style.cssText = `
+                position: fixed;
+                bottom: 2rem;
+                right: 2rem;
+                background: var(--accent);
+                color: #000;
+                padding: 1rem 1.5rem;
+                border-radius: 8px;
+                font-weight: 600;
+                z-index: 1000;
+                animation: slideIn 0.3s ease;
+            `;
+            notif.textContent = message;
+            document.body.appendChild(notif);
+            setTimeout(() => notif.remove(), 3000);
+        }
+    </script>
+</body>
+</html>

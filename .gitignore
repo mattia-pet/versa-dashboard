@@ -1,0 +1,16 @@
+# Sensitive — never commit
+data/freshdesk.key
+data/*.key
+
+# Logs
+*.log
+*-error.log
+
+# Python
+__pycache__/
+*.pyc
+.env
+
+# Local state (generated at runtime)
+data/metrics.json
+data/status.json
