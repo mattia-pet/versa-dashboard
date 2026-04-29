@@ -418,9 +418,7 @@
             font-size: 0.7rem;
         }
 
-        .modal-stat { cursor: default; }
-        .modal-stat[onclick] { cursor: pointer; }
-        .modal-stat[onclick]:hover { background: var(--bg-hover); border-color: var(--accent); }
+        /* Filter pill overrides */
 
         .pill-tickets {
             font-size: 0.65rem;
@@ -483,10 +481,24 @@
         .modal-stat {
             background: var(--bg-dark);
             border-radius: 8px;
-            padding: 0.6rem 1rem;
-            font-size: 0.85rem;
+            padding: 0.5rem 0.9rem;
+            font-size: 0.82rem;
+            border: 1px solid var(--border);
+            user-select: none;
+            transition: all 0.15s ease;
         }
-        .modal-stat span { color: var(--accent); font-weight: 700; margin-right: 0.3rem; }
+        .modal-stat span { font-weight: 700; margin-right: 0.3rem; }
+        .modal-stat[onclick] {
+            cursor: pointer;
+        }
+        .modal-stat[onclick]:hover {
+            border-color: var(--accent);
+            background: var(--bg-hover);
+        }
+        .modal-stat.active {
+            border-color: var(--accent);
+            background: var(--accent-dim);
+        }
 
         .ticket-table {
             width: 100%;
@@ -978,7 +990,7 @@
 
             // Collapsed tasks section — always below tickets, scrollable
             const tasksHtml = `
-                <div style="margin-top:1.5rem;border-top:1px solid var(--border);padding-top:1rem">
+                <div data-section="tasks" style="margin-top:1.5rem;border-top:1px solid var(--border);padding-top:1rem">
                     <div style="font-size:0.75rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:0.5rem">
                         Open Tasks (${customerTasks.length})
                     </div>
@@ -1055,25 +1067,25 @@
 
         function renderStatPills(taskCount, ticketCount, overdue, pending) {
             const pill = (label, count, filter, color) =>
-                `<div class="modal-stat" id="pill-${filter}" onclick="filterCustomerView('${filter}')" style="cursor:pointer;transition:opacity 0.15s">
-                    <span style="color:${color||'var(--accent)'}">${count}</span>${label}
+                `<div class="modal-stat${filter === 'all' ? ' active' : ''}" id="pill-${filter}" onclick="filterCustomerView('${filter}')">
+                    <span style="color:${color}">${count}</span>${label}
                 </div>`;
-            return pill('Tasks', taskCount, 'tasks', 'var(--accent)')
-                 + pill('Tickets', ticketCount, 'all', 'var(--accent)')
+            return pill('Tasks',   taskCount,   'tasks',   'var(--accent)')
+                 + pill('Tickets', ticketCount, 'all',     'var(--accent)')
                  + (overdue > 0 ? pill('OVERDUE', overdue, 'overdue', 'var(--danger)') : '')
                  + (pending > 0 ? pill('Pending', pending, 'pending', 'var(--warning)') : '');
         }
 
         function filterCustomerView(filter) {
             _currentFilter = filter;
-            // Highlight active pill
+            // Toggle active class on pills
             ['tasks','all','overdue','pending'].forEach(f => {
                 const el = document.getElementById('pill-' + f);
-                if (el) el.style.opacity = (f === filter) ? '1' : '0.45';
+                if (el) el.classList.toggle('active', f === filter);
             });
-            // Show/hide tasks section
-            const tasksSection = document.querySelector('#ticketPanelContent > div:last-child');
+            // Tasks pill → scroll to tasks section
             if (filter === 'tasks') {
+                const tasksSection = document.querySelector('[data-section="tasks"]');
                 if (tasksSection) tasksSection.scrollIntoView({behavior:'smooth'});
                 return;
             }
@@ -1081,7 +1093,7 @@
             const wrap = document.getElementById('ticketTableWrap');
             if (!wrap) return;
             let filtered = _currentTickets;
-            if (filter === 'overdue') filtered = _currentTickets.filter(t => t.status && t.status.includes('OVERDUE'));
+            if (filter === 'overdue') filtered = _currentTickets.filter(t => (t.status||'').includes('OVERDUE'));
             if (filter === 'pending') filtered = _currentTickets.filter(t => t.status === 'Pending');
             if (filter === 'open')    filtered = _currentTickets.filter(t => t.status === 'Open');
             wrap.innerHTML = renderTicketRows(filtered);
