@@ -1069,19 +1069,36 @@
         function renderTicketRows(tickets) {
             if (!tickets.length) return '<div style="color:var(--text-dim)">No tickets match this filter</div>';
             return `<table class="ticket-table">
-                <thead><tr><th>ID</th><th>Title</th><th>Status</th><th>Priority</th><th>Requester</th><th>Note</th></tr></thead>
+                <thead><tr><th>ID</th><th>Title</th><th>Status</th><th>Priority</th><th>Requester</th><th>Last Response</th></tr></thead>
                 <tbody>${tickets.map(t => {
                     const s = t.status || '';
                     const cls = s.includes('OVERDUE') ? 'status-awaiting' : s === 'Open' ? 'status-processing' : 'status-awaiting';
-                    const noteStyle = s.includes('OVERDUE') || (t.note||'').includes('Overdue') ? 'color:var(--danger)' : '';
                     const priColor = t.priority==='High'||t.priority==='Urgent' ? 'var(--danger)' : t.priority==='Medium' ? 'var(--warning)' : 'var(--text-dim)';
+                    const isOverdue = s.includes('OVERDUE') || (t.note||'').includes('Overdue');
+
+                    // Build last-response cell
+                    const custDate = t.customer_responded_at || '';
+                    const agentDate = t.agent_responded_at || '';
+                    const ballInTAC = custDate && (!agentDate || custDate > agentDate);
+                    let lastResp = '';
+                    if (custDate || agentDate) {
+                        if (ballInTAC) {
+                            lastResp = `<div style="color:var(--danger);font-size:0.75rem;font-weight:600">⚠ Customer ${custDate}</div>`
+                                     + `<div style="color:var(--text-dim);font-size:0.7rem">TAC last: ${agentDate||'—'}</div>`;
+                        } else {
+                            lastResp = `<div style="color:var(--accent);font-size:0.75rem">✓ Agent ${agentDate}</div>`
+                                     + (custDate ? `<div style="color:var(--text-dim);font-size:0.7rem">Cust: ${custDate}</div>` : '');
+                        }
+                    }
+                    const overdueTag = isOverdue ? `<div style="color:var(--danger);font-size:0.7rem;margin-top:2px">${t.note}</div>` : '';
+
                     return `<tr>
                         <td><span class="ticket-id" onclick="openTicket(${t.id})">#${t.id}</span></td>
                         <td class="ticket-title">${t.title}</td>
                         <td><span class="ticket-status ${cls}">${t.status}</span></td>
                         <td style="font-size:0.75rem;color:${priColor};font-weight:600">${t.priority||''}</td>
                         <td style="font-size:0.75rem;color:var(--text-dim)">${t.opened_by||''}</td>
-                        <td style="font-size:0.75rem;${noteStyle}">${t.note||''}</td>
+                        <td>${lastResp}${overdueTag}</td>
                     </tr>`;
                 }).join('')}</tbody>
             </table>`;

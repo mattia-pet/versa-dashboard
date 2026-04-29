@@ -456,17 +456,25 @@ def _fetch_tickets_for(customer: str, company_id: int, api_key: str) -> list:
         stats = t.get('stats') or {}
 
         # Build a human note from stats
+        cust_ts = stats.get('requester_responded_at', '')
+        agent_ts = stats.get('agent_responded_at', '')
+        cust_date = cust_ts[:10] if cust_ts else ''
+        agent_date = agent_ts[:10] if agent_ts else ''
+
         note = ''
-        if stats.get('requester_responded_at'):
-            note = 'Customer responded'
-        elif stats.get('agent_responded_at'):
-            note = 'Agent responded'
+        if cust_ts:
+            note = f'Customer responded {cust_date}'
+            if agent_date and agent_date >= cust_date:
+                note = f'Agent responded {agent_date}'
+        elif agent_ts:
+            note = f'Agent responded {agent_date}'
+
         due = t.get('due_by', '')
         if due:
             due_dt = datetime.fromisoformat(due.replace('Z', '+00:00'))
             days = (due_dt - now).days
             if overdue:
-                note = f"Overdue by {abs(days)} days" + (f" — {note}" if note else '')
+                note = f"Overdue by {abs(days)} days — {note}" if note else f"Overdue by {abs(days)} days"
             elif days >= 0 and not note:
                 note = f"Due in {days} days"
 
@@ -479,6 +487,8 @@ def _fetch_tickets_for(customer: str, company_id: int, api_key: str) -> list:
             'note': note,
             'created': t.get('created_at', '')[:10],
             'updated': t.get('updated_at', '')[:10],
+            'customer_responded_at': cust_date,
+            'agent_responded_at': agent_date,
         })
 
     result.sort(key=lambda x: (0 if 'OVERDUE' in x['status'] else 1, x['id']))
