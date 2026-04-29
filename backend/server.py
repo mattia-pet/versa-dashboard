@@ -392,6 +392,173 @@ def get_customers():
 
 
 # ---------------------------------------------------------------------------
+# AI — SE Assistant (OpenRouter free tier + Ollama local fallback)
+# ---------------------------------------------------------------------------
+
+OPENROUTER_BASE = "https://openrouter.ai/api/v1"
+DEFAULT_AI_MODEL = "nvidia/nemotron-3-super-120b-a12b:free"
+FALLBACK_MODELS = [
+    "nvidia/nemotron-3-super-120b-a12b:free",
+    "google/gemma-4-26b-a4b-it:free",
+    "google/gemma-3-27b-it:free",
+    "meta-llama/llama-3.3-70b-instruct:free",
+]
+AI_KEY_FILE = DATA_DIR / "openrouter.key"
+AI_CONFIG_FILE = DATA_DIR / "ai-config.json"
+
+_TASK_SYSTEM = """You are an AI assistant for Mattia Petrucciani, Senior Sales Engineer at Versa Networks (SASE/SD-WAN vendor).
+Mattia manages customer POCs: Backblaze, NM DOH, NAF, NMC Courts, EMNRD, Mesa Power.
+
+Given an open task, suggest the single best next action to close it.
+
+Email style when drafting: informal, concise (1-3 sentences), "Hi [FirstName]," opener, close with "Thanks! Mattia" or "Thank you, Mattia". No "Dear", no "Best regards". Use exclamations for warmth ("Awesome!", "Glad it's working!").
+
+Respond with valid JSON only:
+{
+  "action_type": "email|call|internal|technical|meeting_prep",
+  "one_liner": "What to do RIGHT NOW in one sentence",
+  "draft": "Full email/message body (for email or call prep only, else omit)",
+  "steps": ["step 1", "step 2"]
+}"""
+
+_TICKET_SYSTEM = """You are a TAC escalation analyst for Versa Networks.
+Analyze the Freshdesk ticket JSON and assess escalation risk.
+
+Key fields:
+- customer_responded_at: date of customer's last reply
+- agent_responded_at: date of TAC's last reply
+- If customer_responded_at > agent_responded_at → ball is in TAC's court
+- is_escalated / OVERDUE status: SLA breach
+
+Respond with valid JSON only:
+{
+  "risk": "HIGH|MEDIUM|LOW",
+  "summary": "One sentence situation",
+  "escalate": true|false,
+  "action": "Recommended immediate action (one sentence)",
+  "draft_response": "Draft email to customer if they are waiting (optional)"
+}"""
+
+
+def _load_ai_config() -> dict:
+    defaults = {"provider": "openrouter", "model": DEFAULT_AI_MODEL}
+    if AI_CONFIG_FILE.exists():
+        try:
+            return {**defaults, **json.loads(AI_CONFIG_FILE.read_text())}
+        except Exception:
+            pass
+    return defaults
+
+
+def _load_ai_key() -> str | None:
+    if AI_KEY_FILE.exists():
+        return AI_KEY_FILE.read_text().strip()
+    return os.environ.get("OPENROUTER_API_KEY")
+
+
+def call_ai(messages: list, json_mode: bool = True) -> tuple[dict | str, str]:
+    """Returns (result, model_used)."""
+    config = _load_ai_config()
+    provider = config.get("provider", "openrouter")
+    preferred = config.get("model", DEFAULT_AI_MODEL)
+
+    if provider == "ollama":
+        url = config.get("ollama_url", "http://localhost:11434") + "/v1/chat/completions"
+        headers = {"Content-Type": "application/json"}
+        models_to_try = [preferred]
+    else:
+        key = _load_ai_key()
+        if not key:
+            raise ValueError("No OpenRouter API key. Add one to dashboard/data/openrouter.key")
+        url = f"{OPENROUTER_BASE}/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {key}",
+            "HTTP-Referer": "http://localhost:8081",
+            "X-Title": "SE-Bot Dashboard",
+            "Content-Type": "application/json",
+        }
+        # Try preferred first, then fallbacks
+        models_to_try = [preferred] + [m for m in FALLBACK_MODELS if m != preferred]
+
+    last_err = None
+    for model in models_to_try:
+        try:
+            payload: dict = {"model": model, "messages": messages}
+            if json_mode:
+                payload["response_format"] = {"type": "json_object"}
+            resp = http_requests.post(url, headers=headers, json=payload, timeout=60)
+            if resp.status_code == 429:
+                last_err = f"{model} rate-limited"
+                continue
+            resp.raise_for_status()
+            content = resp.json()["choices"][0]["message"]["content"]
+            if json_mode:
+                try:
+                    cleaned = re.sub(r'^[^{\[]*', '', content.strip())
+                    cleaned = re.sub(r'```(?:json)?|```', '', cleaned).strip()
+                    return json.loads(cleaned), model
+                except json.JSONDecodeError:
+                    return {"one_liner": content, "action_type": "internal", "steps": []}, model
+            return content, model
+        except Exception as e:
+            last_err = str(e)
+            continue
+
+    raise RuntimeError(f"All models failed. Last error: {last_err}")
+
+
+@app.route('/api/ai/config', methods=['GET', 'POST'])
+def ai_config_endpoint():
+    if request.method == 'GET':
+        cfg = _load_ai_config()
+        cfg["has_key"] = bool(_load_ai_key())
+        return jsonify(cfg)
+    data = request.get_json() or {}
+    if "api_key" in data:
+        AI_KEY_FILE.write_text(data.pop("api_key"))
+    AI_CONFIG_FILE.write_text(json.dumps(data, indent=2))
+    return jsonify({"success": True})
+
+
+@app.route('/api/ai/suggest', methods=['POST'])
+def ai_suggest():
+    data = request.get_json() or {}
+    mode = data.get("mode", "task")
+
+    try:
+        if mode == "task":
+            task = data.get("task", {})
+            # Inject relevant context
+            user_msg = (
+                f"Customer: {task.get('customer', 'Unknown')}\n"
+                f"Task: {task.get('title', '')}\n"
+                f"Priority: {task.get('priority', '')}\n"
+                f"Source: {task.get('src_type', '')} {task.get('src_date', '')}\n"
+                f"Context note: {task.get('src_note', '')}\n"
+                f"From: {task.get('src_from', '')}\n"
+                f"Subject: {task.get('src_subject', '')}"
+            )
+            messages = [
+                {"role": "system", "content": _TASK_SYSTEM},
+                {"role": "user", "content": user_msg},
+            ]
+        elif mode == "ticket":
+            ticket = data.get("ticket", {})
+            messages = [
+                {"role": "system", "content": _TICKET_SYSTEM},
+                {"role": "user", "content": json.dumps(ticket)},
+            ]
+        else:
+            return jsonify({"success": False, "error": f"Unknown mode: {mode}"}), 400
+
+        result, model_used = call_ai(messages)
+        return jsonify({"success": True, "result": result, "model": model_used})
+
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+# ---------------------------------------------------------------------------
 # Freshdesk live ticket integration
 # ---------------------------------------------------------------------------
 

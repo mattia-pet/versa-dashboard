@@ -352,6 +352,59 @@
         .agent-name { font-size: 0.75rem; font-weight: 500; }
         .agent-status { font-size: 0.65rem; color: var(--accent); }
 
+        /* AI result panel */
+        .ai-result {
+            background: var(--bg-dark);
+            border-radius: 8px;
+            border-left: 3px solid var(--accent);
+            padding: 0.85rem 1rem;
+            margin-top: 0.75rem;
+        }
+        .ai-result .ai-action { font-weight: 600; font-size: 0.88rem; margin-bottom: 0.5rem; }
+        .ai-result .ai-draft {
+            white-space: pre-wrap;
+            font-size: 0.82rem;
+            line-height: 1.6;
+            color: var(--text);
+            background: #111;
+            border-radius: 6px;
+            padding: 0.75rem;
+            margin-top: 0.5rem;
+        }
+        .ai-steps { margin-top: 0.5rem; padding-left: 1.2rem; font-size: 0.82rem; }
+        .ai-steps li { margin-bottom: 0.25rem; }
+        .ai-model-tag { font-size: 0.68rem; color: var(--text-dim); margin-top: 0.5rem; }
+        .btn-ai {
+            width: 100%;
+            margin-top: 0.85rem;
+            padding: 0.6rem 1rem;
+            background: linear-gradient(135deg, #004d3d, #007a5e);
+            border: 1px solid var(--accent);
+            color: var(--accent);
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.82rem;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        .btn-ai:hover { background: var(--accent); color: #000; }
+        .btn-ai:disabled { opacity: 0.5; cursor: wait; }
+
+        /* AI Config Modal */
+        .ai-config-modal {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.8);
+            z-index: 2000; display: flex; align-items: center; justify-content: center;
+        }
+        .ai-config-box {
+            background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px;
+            width: 480px; padding: 1.5rem;
+        }
+        .ai-config-box label { display: block; font-size: 0.8rem; color: var(--text-dim); margin-bottom: 0.25rem; margin-top: 0.75rem; }
+        .ai-config-box input, .ai-config-box select {
+            width: 100%; background: var(--bg-dark); border: 1px solid var(--border);
+            color: var(--text); padding: 0.5rem 0.75rem; border-radius: 6px; font-size: 0.85rem;
+        }
+
         /* Keyboard hints */
         .keyboard-hints {
             display: flex;
@@ -662,25 +715,25 @@
                 <div class="sidebar-section">
                     <div class="sidebar-title">Your Agents</div>
                     <div class="agents-grid" id="agentsGrid">
-                        <div class="agent-mini active">
+                        <div class="agent-mini active" onclick="openAIConfig()" title="Click to configure">
                             <div class="agent-icon">🤖</div>
-                            <div class="agent-name">SE-Bot</div>
-                            <div class="agent-status">LIVE</div>
+                            <div class="agent-name">SE Assistant</div>
+                            <div class="agent-status" id="agentModelTag">...</div>
                         </div>
                         <div class="agent-mini">
                             <div class="agent-icon">📊</div>
                             <div class="agent-name">Deal-Bot</div>
-                            <div class="agent-status">Ready</div>
+                            <div class="agent-status">Soon</div>
                         </div>
                         <div class="agent-mini">
                             <div class="agent-icon">✍️</div>
                             <div class="agent-name">Content-Bot</div>
                             <div class="agent-status">Ready</div>
                         </div>
-                        <div class="agent-mini" onclick="createAgent()">
-                            <div class="agent-icon">➕</div>
-                            <div class="agent-name">New Agent</div>
-                            <div class="agent-status">Create</div>
+                        <div class="agent-mini" onclick="openAIConfig()">
+                            <div class="agent-icon">⚙️</div>
+                            <div class="agent-name">AI Config</div>
+                            <div class="agent-status">Settings</div>
                         </div>
                     </div>
                 </div>
@@ -719,6 +772,36 @@
         <div id="drawerBody" style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem"></div>
     </div>
 
+    <!-- AI Config Modal -->
+    <div id="aiConfigModal" class="ai-config-modal" style="display:none" onclick="if(event.target===this)closeAIConfig()">
+        <div class="ai-config-box">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+                <h3 style="font-size:1rem;font-weight:600">🤖 SE Assistant Config</h3>
+                <button onclick="closeAIConfig()" style="background:none;border:none;color:var(--text-dim);font-size:1.2rem;cursor:pointer">✕</button>
+            </div>
+            <label>Provider</label>
+            <select id="cfgProvider" onchange="toggleOllamaUrl()">
+                <option value="openrouter">OpenRouter (free tier)</option>
+                <option value="ollama">Ollama (local)</option>
+            </select>
+            <label>OpenRouter API Key</label>
+            <input type="password" id="cfgApiKey" placeholder="sk-or-v1-..." />
+            <label>Model ID</label>
+            <input type="text" id="cfgModel" value="nvidia/nemotron-3-super-120b-a12b:free" />
+            <div id="cfgOllamaRow" style="display:none">
+                <label>Ollama URL</label>
+                <input type="text" id="cfgOllamaUrl" placeholder="http://localhost:11434" value="http://localhost:11434" />
+            </div>
+            <div style="margin-top:0.5rem;font-size:0.72rem;color:var(--text-dim)">
+                Free OpenRouter models: <code>meta-llama/llama-3.3-70b-instruct:free</code> · <code>qwen/qwen3-235b-a22b:free</code> · <code>google/gemma-3-27b-it:free</code>
+            </div>
+            <div style="display:flex;gap:0.75rem;margin-top:1.25rem">
+                <button onclick="saveAIConfig()" style="flex:2;background:var(--accent);color:#000;border:none;padding:0.6rem;border-radius:6px;font-weight:600;cursor:pointer">Save</button>
+                <button onclick="closeAIConfig()" style="flex:1;background:none;border:1px solid var(--border);color:var(--text-dim);padding:0.6rem;border-radius:6px;cursor:pointer">Cancel</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Ticket Modal -->
     <div id="ticketModal" class="modal-overlay" style="display:none" onclick="handleModalClick(event)">
         <div class="modal-box">
@@ -750,6 +833,7 @@
             await loadTasks();
             await loadRoadmap();
             await loadCustomers();
+            await loadAIConfig();
             setupKeyboardShortcuts();
         });
 
@@ -1092,13 +1176,16 @@
                     }
                     const overdueTag = isOverdue ? `<div style="color:var(--danger);font-size:0.7rem;margin-top:2px">${t.note}</div>` : '';
 
+                    const aiBtn = isOverdue || ballInTAC
+                        ? `<button onclick='analyzeTicket(${JSON.stringify(t).replace(/'/g,"&#39;")})' style="margin-top:4px;background:none;border:1px solid var(--warning);color:var(--warning);padding:0.15rem 0.4rem;border-radius:4px;cursor:pointer;font-size:0.68rem">🤖 AI</button>`
+                        : '';
                     return `<tr>
                         <td><span class="ticket-id" onclick="openTicket(${t.id})">#${t.id}</span></td>
                         <td class="ticket-title">${t.title}</td>
                         <td><span class="ticket-status ${cls}">${t.status}</span></td>
                         <td style="font-size:0.75rem;color:${priColor};font-weight:600">${t.priority||''}</td>
                         <td style="font-size:0.75rem;color:var(--text-dim)">${t.opened_by||''}</td>
-                        <td>${lastResp}${overdueTag}</td>
+                        <td>${lastResp}${overdueTag}${aiBtn}</td>
                     </tr>`;
                 }).join('')}</tbody>
             </table>`;
@@ -1141,8 +1228,10 @@
         // --- Task Detail Drawer ---
         const SRC_ICONS = { zime:'🎙️', email:'📧', teams:'💬', calendar:'📅', manual:'📝' };
         const SRC_LABELS = { zime:'Zime Transcript', email:'Email', teams:'Teams Message', calendar:'Calendar Event', manual:'Note' };
+        let _drawerTask = null;
 
         function openTaskDrawer(task) {
+            _drawerTask = task;
             document.getElementById('drawerCustomer').textContent = task.customer || task.source || '';
             document.getElementById('drawerTitle').textContent = task.title;
 
@@ -1171,9 +1260,8 @@
                         <div><span style="color:var(--text-dim);font-size:0.8rem">Section: </span><span style="font-size:0.85rem">${task.source||'—'}</span></div>
                         <div><span style="color:var(--text-dim);font-size:0.8rem">Status: </span><span style="font-size:0.85rem">${task.status==='in_progress'?'🔄 In Progress':'⏳ Pending'}</span></div>
                     </div>
-                    <div style="margin-top:1rem;padding:0.6rem 0.75rem;background:var(--bg-dark);border-radius:6px;font-size:0.75rem;color:var(--text-dim)">
-                        💡 <em>Phase 2: AI will suggest how to close this task</em>
-                    </div>
+                    <button class="btn-ai" id="drawerAiBtn" onclick="askAI()">🤖 Ask SE Assistant</button>
+                    <div id="drawerAiResult"></div>
                 </div>`;
 
             document.getElementById('drawerBody').innerHTML = sourceHtml + detailsHtml;
@@ -1263,6 +1351,143 @@
                 }
             });
         }
+
+        // --- AI SE Assistant ---
+
+        let _aiConfig = {};
+
+        async function loadAIConfig() {
+            try {
+                const res = await fetch(`${API}/api/ai/config`);
+                _aiConfig = await res.json();
+                const tag = document.getElementById('agentModelTag');
+                if (tag) {
+                    const m = (_aiConfig.model || '').split('/').pop().replace(':free','');
+                    tag.textContent = _aiConfig.has_key ? m : 'No key';
+                    tag.style.color = _aiConfig.has_key ? 'var(--accent)' : 'var(--warning)';
+                }
+            } catch(e) { console.error('AI config load failed:', e); }
+        }
+
+        function renderAIResult(result, model, container) {
+            const ACTION_ICONS = {email:'📧', call:'📞', internal:'⚙️', technical:'🔧', meeting_prep:'📅'};
+            const icon = ACTION_ICONS[result.action_type] || '💡';
+            const modelShort = (model||'').split('/').pop().replace(':free','');
+
+            let body = `<div class="ai-result">
+                <div class="ai-action">${icon} ${result.one_liner || result.action || ''}</div>`;
+
+            if (result.draft) {
+                body += `<div class="ai-draft">${result.draft.replace(/</g,'&lt;')}</div>`;
+            } else if (result.steps && result.steps.length) {
+                body += `<ul class="ai-steps">${result.steps.map(s=>`<li>${s}</li>`).join('')}</ul>`;
+            }
+            if (result.escalate !== undefined) {
+                const riskColor = result.risk==='HIGH' ? 'var(--danger)' : result.risk==='MEDIUM' ? 'var(--warning)' : 'var(--accent)';
+                body += `<div style="margin-top:0.5rem;font-size:0.8rem"><span style="color:${riskColor};font-weight:700">${result.risk}</span> risk — ${result.action||''}</div>`;
+                if (result.draft_response) {
+                    body += `<div class="ai-draft" style="margin-top:0.5rem">${result.draft_response.replace(/</g,'&lt;')}</div>`;
+                }
+            }
+            body += `<div class="ai-model-tag">via ${modelShort}</div></div>`;
+            container.innerHTML = body;
+        }
+
+        async function askAI() {
+            if (!_drawerTask) return;
+            const btn = document.getElementById('drawerAiBtn');
+            const resultDiv = document.getElementById('drawerAiResult');
+            btn.disabled = true;
+            btn.textContent = '⏳ Thinking...';
+            resultDiv.innerHTML = '';
+            try {
+                const res = await fetch(`${API}/api/ai/suggest`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({mode: 'task', task: _drawerTask})
+                });
+                const data = await res.json();
+                if (data.success) {
+                    renderAIResult(data.result, data.model, resultDiv);
+                } else {
+                    resultDiv.innerHTML = `<div style="color:var(--danger);font-size:0.82rem;margin-top:0.5rem">⚠ ${data.error}</div>`;
+                }
+            } catch(e) {
+                resultDiv.innerHTML = `<div style="color:var(--danger);font-size:0.82rem;margin-top:0.5rem">⚠ Request failed</div>`;
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '🤖 Ask SE Assistant';
+            }
+        }
+
+        async function analyzeTicket(ticket) {
+            const modalId = 'ticketAiModal';
+            let modal = document.getElementById(modalId);
+            if (!modal) {
+                modal = document.createElement('div');
+                modal.id = modalId;
+                modal.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:1100;background:var(--bg-card);border-top:2px solid var(--warning);padding:1.25rem 2rem;max-height:45vh;overflow-y:auto;box-shadow:0 -8px 32px rgba(0,0,0,0.6)';
+                document.body.appendChild(modal);
+            }
+            modal.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem">
+                <b style="font-size:0.9rem">🤖 AI Ticket Analysis — #${ticket.id}</b>
+                <button onclick="document.getElementById('${modalId}').remove()" style="background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:1rem">✕</button>
+            </div><div id="${modalId}Result"><span style="color:var(--text-dim);font-size:0.82rem">⏳ Analyzing...</span></div>`;
+
+            try {
+                const res = await fetch(`${API}/api/ai/suggest`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({mode: 'ticket', ticket})
+                });
+                const data = await res.json();
+                const container = document.getElementById(`${modalId}Result`);
+                if (data.success) renderAIResult(data.result, data.model, container);
+                else container.innerHTML = `<div style="color:var(--danger)">${data.error}</div>`;
+            } catch(e) {
+                document.getElementById(`${modalId}Result`).innerHTML = `<div style="color:var(--danger)">Request failed</div>`;
+            }
+        }
+
+        // --- AI Config modal ---
+        function openAIConfig() {
+            document.getElementById('cfgProvider').value = _aiConfig.provider || 'openrouter';
+            document.getElementById('cfgModel').value = _aiConfig.model || DEFAULT_AI_MODEL_ID;
+            document.getElementById('cfgApiKey').value = '';
+            document.getElementById('cfgApiKey').placeholder = _aiConfig.has_key ? '(key saved — leave blank to keep)' : 'sk-or-v1-...';
+            document.getElementById('cfgOllamaUrl').value = _aiConfig.ollama_url || 'http://localhost:11434';
+            toggleOllamaUrl();
+            document.getElementById('aiConfigModal').style.display = 'flex';
+        }
+
+        function closeAIConfig() {
+            document.getElementById('aiConfigModal').style.display = 'none';
+        }
+
+        function toggleOllamaUrl() {
+            const isOllama = document.getElementById('cfgProvider').value === 'ollama';
+            document.getElementById('cfgOllamaRow').style.display = isOllama ? 'block' : 'none';
+        }
+
+        async function saveAIConfig() {
+            const payload = {
+                provider: document.getElementById('cfgProvider').value,
+                model: document.getElementById('cfgModel').value,
+                ollama_url: document.getElementById('cfgOllamaUrl').value,
+            };
+            const key = document.getElementById('cfgApiKey').value.trim();
+            if (key) payload.api_key = key;
+            await fetch(`${API}/api/ai/config`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+            await loadAIConfig();
+            closeAIConfig();
+            showNotification('AI config saved');
+        }
+
+        const DEFAULT_AI_MODEL_ID = 'nvidia/nemotron-3-super-120b-a12b:free';
 
         function showNotification(message) {
             // Simple notification - could be enhanced
