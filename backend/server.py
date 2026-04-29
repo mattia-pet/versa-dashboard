@@ -19,20 +19,17 @@ import subprocess
 app = Flask(__name__)
 CORS(app)  # Enable CORS for local development
 
-# Paths — configurable via environment variables for portability
+# Paths
 DASHBOARD_ROOT = Path(__file__).parent.parent
 DATA_DIR = DASHBOARD_ROOT / "data"
 METRICS_FILE = DATA_DIR / "metrics.json"
 STATUS_FILE = DATA_DIR / "status.json"
+TASKS_FILE = DASHBOARD_ROOT.parent / "TASKS.md"
+OPEN_ITEMS_FILE = DASHBOARD_ROOT.parent / "OPEN-ITEMS.md"
 TASK_STATE_FILE = DATA_DIR / "task-state.json"
-
-# SE-Bot repo paths — override with env vars if dashboard is run standalone
-_SE_BOT_ROOT = Path(os.environ.get('SE_BOT_ROOT', DASHBOARD_ROOT.parent / 'SE-Bot'))
-OPEN_ITEMS_FILE = Path(os.environ.get('OPEN_ITEMS_FILE', _SE_BOT_ROOT / 'OPEN-ITEMS.md'))
-TASKS_FILE = Path(os.environ.get('TASKS_FILE', _SE_BOT_ROOT / 'TASKS.md'))
-TWITTER_DRAFTS = Path(os.environ.get('TWITTER_DRAFTS', _SE_BOT_ROOT / 'social' / 'content' / 'twitter' / 'drafts'))
-TWITTER_SCHEDULED = Path(os.environ.get('TWITTER_SCHEDULED', _SE_BOT_ROOT / 'social' / 'content' / 'twitter' / 'scheduled'))
-TWITTER_POSTED = Path(os.environ.get('TWITTER_POSTED', _SE_BOT_ROOT / 'social' / 'content' / 'twitter' / 'posted'))
+TWITTER_DRAFTS = DASHBOARD_ROOT.parent / "social" / "content" / "twitter" / "drafts"
+TWITTER_SCHEDULED = DASHBOARD_ROOT.parent / "social" / "content" / "twitter" / "scheduled"
+TWITTER_POSTED = DASHBOARD_ROOT.parent / "social" / "content" / "twitter" / "posted"
 
 
 def load_task_state():

@@ -801,9 +801,7 @@
                 document.getElementById('emailContent').textContent = currentTask.context || currentTask.description;
                 approveBtn.innerHTML = '✓ Ready for Meeting';
             } else if (currentTask.type === 'follow_up') {
-                emailPreview.style.display = 'block';
-                document.getElementById('emailTo').textContent = `Follow-up: ${currentTask.source || 'Task'}`;
-                document.getElementById('emailContent').textContent = currentTask.context || currentTask.description;
+                emailPreview.style.display = 'none';
                 approveBtn.innerHTML = '✓ Complete';
             } else if (currentTask.type === 'email_review') {
                 emailPreview.style.display = 'block';
@@ -972,21 +970,21 @@
             // Header
             document.getElementById('ticketPanelTitle').textContent = `${name}`;
 
-            // Tasks section
-            const tasksHtml = customerTasks.length > 0 ? `
-                <div style="margin-bottom:1.5rem">
-                    <div style="font-size:0.8rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:0.75rem">
+            // Collapsed tasks section — always below tickets, scrollable
+            const tasksHtml = `
+                <div style="margin-top:1.5rem;border-top:1px solid var(--border);padding-top:1rem">
+                    <div style="font-size:0.75rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:0.5rem">
                         Open Tasks (${customerTasks.length})
                     </div>
-                    ${customerTasks.map((t, i) => `
-                        <div style="padding:0.6rem 0.75rem;background:var(--bg-dark);border-radius:6px;margin-bottom:0.4rem;
+                    <div style="max-height:180px;overflow-y:auto;display:flex;flex-direction:column;gap:0.3rem">
+                    ${customerTasks.length > 0 ? customerTasks.map(t => `
+                        <div style="padding:0.45rem 0.65rem;background:var(--bg-dark);border-radius:5px;
                                     border-left:3px solid ${t.priority==='high'?'var(--danger)':t.priority==='medium'?'var(--warning)':'var(--text-dim)'}">
-                            <div style="font-size:0.85rem;font-weight:500">${t.title}</div>
-                            <div style="font-size:0.72rem;color:var(--text-dim);margin-top:0.2rem">${t.source || ''}</div>
+                            <div style="font-size:0.8rem;font-weight:500;line-height:1.3">${t.title}</div>
                         </div>
-                    `).join('')}
-                </div>
-            ` : `<div style="color:var(--text-dim);font-size:0.9rem;margin-bottom:1.5rem">No open tasks</div>`;
+                    `).join('') : '<div style="color:var(--text-dim);font-size:0.8rem">No open tasks</div>'}
+                    </div>
+                </div>`;
 
             // Stats
             const highCount = customerTasks.filter(t => t.priority === 'high').length;
@@ -995,18 +993,16 @@
                 ${highCount > 0 ? `<div class="modal-stat"><span style="color:var(--danger)">${highCount}</span>High</div>` : ''}
             `;
 
-            // Tickets section (only for customers with ticket integration)
+            // Tickets section — shown FIRST for customers with Freshdesk integration
             if (TICKET_CUSTOMERS.includes(name)) {
-                document.getElementById('ticketPanelContent').innerHTML = tasksHtml + '<div style="color:var(--text-dim);font-size:0.8rem;margin-bottom:0.5rem">Loading tickets...</div>';
+                document.getElementById('ticketPanelContent').innerHTML = '<div style="color:var(--text-dim);font-size:0.8rem">Loading tickets...</div>' + tasksHtml;
                 try {
                     const res = await fetch(`${API}/api/customers/${name}/tickets`);
                     const data = await res.json();
                     const tickets = data.tickets || [];
                     const overdue = tickets.filter(t => t.status && t.status.includes('OVERDUE')).length;
                     const pending = tickets.filter(t => t.status === 'Pending').length;
-                    const open = tickets.filter(t => t.status === 'Open').length;
 
-                    // Update stats with ticket counts
                     document.getElementById('ticketPanelStats').innerHTML = `
                         <div class="modal-stat"><span>${customerTasks.length}</span>Tasks</div>
                         <div class="modal-stat"><span>${tickets.length}</span>Tickets</div>
@@ -1018,7 +1014,7 @@
                     const refreshBtn = `<button onclick="refreshTickets('${name}')" style="background:none;border:1px solid var(--border);color:var(--text-dim);padding:0.2rem 0.5rem;border-radius:4px;cursor:pointer;font-size:0.72rem;margin-left:0.5rem">↻ Refresh</button>`;
 
                     const ticketTable = tickets.length > 0 ? `
-                        <div style="font-size:0.8rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:0.75rem;display:flex;align-items:center">
+                        <div style="font-size:0.75rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:0.6rem;display:flex;align-items:center">
                             Support Tickets (${tickets.length})${cachedAt}${refreshBtn}
                         </div>
                         <table class="ticket-table">
@@ -1027,8 +1023,8 @@
                                 ${tickets.map(t => {
                                     const s = t.status || '';
                                     const cls = s.includes('OVERDUE') ? 'status-awaiting' : s === 'Open' ? 'status-processing' : 'status-awaiting';
-                                    const noteStyle = s.includes('OVERDUE') ? 'color:var(--danger)' : t.note && t.note.includes('Overdue') ? 'color:var(--danger)' : '';
-                                    const priColor = t.priority === 'High' || t.priority === 'Urgent' ? 'var(--danger)' : t.priority === 'Medium' ? 'var(--warning)' : 'var(--text-dim)';
+                                    const noteStyle = s.includes('OVERDUE') || (t.note||'').includes('Overdue') ? 'color:var(--danger)' : '';
+                                    const priColor = t.priority==='High'||t.priority==='Urgent' ? 'var(--danger)' : t.priority==='Medium' ? 'var(--warning)' : 'var(--text-dim)';
                                     return `<tr>
                                         <td><span class="ticket-id" onclick="openTicket(${t.id})">#${t.id}</span></td>
                                         <td class="ticket-title">${t.title}</td>
@@ -1039,11 +1035,12 @@
                                     </tr>`;
                                 }).join('')}
                             </tbody>
-                        </table>` : `<div style="color:var(--text-dim)">No open tickets${refreshBtn}</div>`;
+                        </table>` : `<div style="color:var(--text-dim);margin-bottom:0.5rem">No open tickets${refreshBtn}</div>`;
 
-                    document.getElementById('ticketPanelContent').innerHTML = tasksHtml + ticketTable;
+                    // Tickets FIRST, tasks collapsed below
+                    document.getElementById('ticketPanelContent').innerHTML = ticketTable + tasksHtml;
                 } catch(e) {
-                    document.getElementById('ticketPanelContent').innerHTML = tasksHtml + '<div style="color:var(--danger)">Failed to load tickets</div>';
+                    document.getElementById('ticketPanelContent').innerHTML = '<div style="color:var(--danger)">Failed to load tickets</div>' + tasksHtml;
                 }
             } else {
                 document.getElementById('ticketPanelContent').innerHTML = tasksHtml;
