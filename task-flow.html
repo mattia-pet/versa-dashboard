@@ -620,10 +620,10 @@
 
                 <div class="action-buttons">
                     <button class="btn btn-approve" onclick="approveTask()">
-                        ✓ Approve & Send
+                        ✓ Complete
                     </button>
-                    <button class="btn btn-edit" onclick="editTask()">
-                        ✎ Edit
+                    <button class="btn btn-edit" onclick="currentTask && openTaskDrawer(currentTask)" title="View source, context & details">
+                        ℹ Details
                     </button>
                     <button class="btn btn-skip" onclick="skipTask()">
                         → Skip
@@ -635,7 +635,7 @@
 
                 <div class="keyboard-hints">
                     <span class="hint"><span class="key">Enter</span> Approve</span>
-                    <span class="hint"><span class="key">E</span> Edit</span>
+                    <span class="hint"><span class="key">E</span> Details</span>
                     <span class="hint"><span class="key">S</span> Skip</span>
                     <span class="hint"><span class="key">D</span> Delete</span>
                     <span class="hint"><span class="key">↑↓</span> Navigate</span>
@@ -702,6 +702,21 @@
                 </div>
             </div>
         </div>
+    </div>
+
+    <!-- Task Detail Drawer -->
+    <div id="taskDrawer" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:1000;
+         background:var(--bg-card);border-top:2px solid var(--accent);padding:1.5rem 2rem;
+         max-height:55vh;overflow-y:auto;box-shadow:0 -8px 32px rgba(0,0,0,0.5)">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:1rem">
+            <div style="flex:1;padding-right:2rem">
+                <div id="drawerCustomer" style="font-size:0.75rem;color:var(--accent);text-transform:uppercase;letter-spacing:1px;margin-bottom:0.3rem"></div>
+                <h3 id="drawerTitle" style="font-size:1.1rem;font-weight:600;line-height:1.4"></h3>
+            </div>
+            <button onclick="closeTaskDrawer()" style="background:var(--bg-hover);border:1px solid var(--border);color:var(--text);
+                    padding:0.4rem 0.9rem;border-radius:6px;cursor:pointer;font-size:0.85rem;white-space:nowrap">✕ Close</button>
+        </div>
+        <div id="drawerBody" style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem"></div>
     </div>
 
     <!-- Ticket Modal -->
@@ -774,12 +789,17 @@
 
         function renderTaskQueue() {
             const queue = document.getElementById('taskQueue');
-            queue.innerHTML = allTasks.map((task, idx) => `
-                <div class="queue-item ${idx === currentIndex ? 'active' : ''}" onclick="selectTask(${idx})">
-                    <div class="queue-item-title">${task.title}</div>
-                    <div class="queue-item-meta">${task.type} • ${task.priority}</div>
-                </div>
-            `).join('');
+            queue.innerHTML = allTasks.map((task, idx) => {
+                const hasSrc = task.src_type || task.src_url || task.src_note;
+                const srcBadge = hasSrc ? `<span title="Has source" style="color:var(--accent);margin-left:4px;font-size:0.7rem">●</span>` : '';
+                return `<div class="queue-item ${idx === currentIndex ? 'active' : ''}"
+                         onclick="selectTask(${idx})"
+                         ondblclick="openTaskDrawer(allTasks[${idx}])"
+                         title="Click to focus · Double-click for details">
+                    <div class="queue-item-title">${task.title}${srcBadge}</div>
+                    <div class="queue-item-meta">${task.customer || task.source} • ${task.priority}</div>
+                </div>`;
+            }).join('');
         }
 
         function selectTask(index) {
@@ -994,13 +1014,15 @@
                     <div style="font-size:0.75rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:0.5rem">
                         Open Tasks (${customerTasks.length})
                     </div>
-                    <div style="max-height:180px;overflow-y:auto;display:flex;flex-direction:column;gap:0.3rem">
-                    ${customerTasks.length > 0 ? customerTasks.map(t => `
-                        <div style="padding:0.45rem 0.65rem;background:var(--bg-dark);border-radius:5px;
+                    <div style="max-height:200px;overflow-y:auto;display:flex;flex-direction:column;gap:0.3rem">
+                    ${customerTasks.length > 0 ? customerTasks.map((t,i) => {
+                        const hasSrc = t.src_type || t.src_url || t.src_note;
+                        const dot = hasSrc ? `<span style="color:var(--accent);margin-left:5px;font-size:0.65rem" title="Has source">●</span>` : '';
+                        return `<div onclick='openTaskDrawer(${JSON.stringify(t).replace(/'/g,"&#39;")})' style="padding:0.45rem 0.65rem;background:var(--bg-dark);border-radius:5px;cursor:pointer;
                                     border-left:3px solid ${t.priority==='high'?'var(--danger)':t.priority==='medium'?'var(--warning)':'var(--text-dim)'}">
-                            <div style="font-size:0.8rem;font-weight:500;line-height:1.3">${t.title}</div>
-                        </div>
-                    `).join('') : '<div style="color:var(--text-dim);font-size:0.8rem">No open tasks</div>'}
+                            <div style="font-size:0.8rem;font-weight:500;line-height:1.3">${t.title}${dot}</div>
+                        </div>`;
+                    }).join('') : '<div style="color:var(--text-dim);font-size:0.8rem">No open tasks</div>'}
                     </div>
                 </div>`;
 
@@ -1099,6 +1121,55 @@
             wrap.innerHTML = renderTicketRows(filtered);
         }
 
+        // --- Task Detail Drawer ---
+        const SRC_ICONS = { zime:'🎙️', email:'📧', teams:'💬', calendar:'📅', manual:'📝' };
+        const SRC_LABELS = { zime:'Zime Transcript', email:'Email', teams:'Teams Message', calendar:'Calendar Event', manual:'Note' };
+
+        function openTaskDrawer(task) {
+            document.getElementById('drawerCustomer').textContent = task.customer || task.source || '';
+            document.getElementById('drawerTitle').textContent = task.title;
+
+            const hasSrc = task.src_type || task.src_url || task.src_note || task.src_from;
+            const srcIcon = SRC_ICONS[task.src_type] || '🔗';
+            const srcLabel = SRC_LABELS[task.src_type] || 'Source';
+
+            const sourceHtml = hasSrc ? `
+                <div>
+                    <div style="font-size:0.72rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:0.6rem">
+                        ${srcIcon} ${srcLabel}${task.src_date ? ' · ' + task.src_date : ''}
+                    </div>
+                    ${task.src_from ? `<div style="font-size:0.82rem;margin-bottom:0.3rem">From: <span style="color:var(--accent)">${task.src_from}</span></div>` : ''}
+                    ${task.src_subject ? `<div style="font-size:0.82rem;margin-bottom:0.3rem">Subject: <em>${task.src_subject}</em></div>` : ''}
+                    ${task.src_min ? `<div style="font-size:0.82rem;margin-bottom:0.3rem">⏱️ Minute: <span style="color:var(--accent)">${task.src_min}</span></div>` : ''}
+                    ${task.src_note ? `<div style="margin-top:0.5rem;padding:0.75rem;background:var(--bg-dark);border-radius:6px;border-left:3px solid var(--accent);font-size:0.85rem;line-height:1.5;font-style:italic">"${task.src_note}"</div>` : ''}
+                    ${task.src_url ? `<div style="margin-top:0.75rem"><a href="${task.src_url}" target="_blank" style="color:var(--accent);font-size:0.82rem">→ Open source ↗</a></div>` : ''}
+                </div>` : `<div style="color:var(--text-dim);font-size:0.85rem">No source linked yet.<br>Add a <code>&lt;!-- src:zime | date:... | note:"..." --&gt;</code> line in OPEN-ITEMS.md.</div>`;
+
+            const priColor = task.priority==='high' ? 'var(--danger)' : task.priority==='medium' ? 'var(--warning)' : 'var(--text-dim)';
+            const detailsHtml = `
+                <div>
+                    <div style="font-size:0.72rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:0.6rem">Task Details</div>
+                    <div style="display:flex;flex-direction:column;gap:0.4rem">
+                        <div><span style="color:var(--text-dim);font-size:0.8rem">Priority: </span><span style="color:${priColor};font-weight:600;font-size:0.85rem">${(task.priority||'').toUpperCase()}</span></div>
+                        <div><span style="color:var(--text-dim);font-size:0.8rem">Section: </span><span style="font-size:0.85rem">${task.source||'—'}</span></div>
+                        <div><span style="color:var(--text-dim);font-size:0.8rem">Status: </span><span style="font-size:0.85rem">${task.status==='in_progress'?'🔄 In Progress':'⏳ Pending'}</span></div>
+                    </div>
+                    <div style="margin-top:1rem;padding:0.6rem 0.75rem;background:var(--bg-dark);border-radius:6px;font-size:0.75rem;color:var(--text-dim)">
+                        💡 <em>Phase 2: AI will suggest how to close this task</em>
+                    </div>
+                </div>`;
+
+            document.getElementById('drawerBody').innerHTML = sourceHtml + detailsHtml;
+            document.getElementById('taskDrawer').style.display = 'block';
+        }
+
+        function closeTaskDrawer() {
+            document.getElementById('taskDrawer').style.display = 'none';
+        }
+
+        // Close drawer on Escape
+        document.addEventListener('keydown', e => { if (e.key === 'Escape') closeTaskDrawer(); });
+
         function openTicket(id) {
             window.open(`https://support.versa-networks.com/a/tickets/${id}`, '_blank');
         }
@@ -1156,7 +1227,7 @@
                         break;
                     case 'e':
                     case 'E':
-                        editTask();
+                        if (currentTask) openTaskDrawer(currentTask);
                         break;
                     case 's':
                     case 'S':

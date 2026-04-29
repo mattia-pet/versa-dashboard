@@ -24,14 +24,12 @@ DASHBOARD_ROOT = Path(__file__).parent.parent
 DATA_DIR = DASHBOARD_ROOT / "data"
 METRICS_FILE = DATA_DIR / "metrics.json"
 STATUS_FILE = DATA_DIR / "status.json"
+TASKS_FILE = DASHBOARD_ROOT.parent / "TASKS.md"
+OPEN_ITEMS_FILE = DASHBOARD_ROOT.parent / "OPEN-ITEMS.md"
 TASK_STATE_FILE = DATA_DIR / "task-state.json"
-
-_SE_BOT_ROOT = Path(os.environ.get('SE_BOT_ROOT', DASHBOARD_ROOT.parent / 'SE-Bot'))
-OPEN_ITEMS_FILE = Path(os.environ.get('OPEN_ITEMS_FILE', _SE_BOT_ROOT / 'OPEN-ITEMS.md'))
-TASKS_FILE = Path(os.environ.get('TASKS_FILE', _SE_BOT_ROOT / 'TASKS.md'))
-TWITTER_DRAFTS = Path(os.environ.get('TWITTER_DRAFTS', _SE_BOT_ROOT / 'social' / 'content' / 'twitter' / 'drafts'))
-TWITTER_SCHEDULED = Path(os.environ.get('TWITTER_SCHEDULED', _SE_BOT_ROOT / 'social' / 'content' / 'twitter' / 'scheduled'))
-TWITTER_POSTED = Path(os.environ.get('TWITTER_POSTED', _SE_BOT_ROOT / 'social' / 'content' / 'twitter' / 'posted'))
+TWITTER_DRAFTS = DASHBOARD_ROOT.parent / "social" / "content" / "twitter" / "drafts"
+TWITTER_SCHEDULED = DASHBOARD_ROOT.parent / "social" / "content" / "twitter" / "scheduled"
+TWITTER_POSTED = DASHBOARD_ROOT.parent / "social" / "content" / "twitter" / "posted"
 
 
 def load_task_state():
@@ -47,68 +45,105 @@ def save_task_state(state):
         json.dump(state, f, indent=2)
 
 
+def _parse_meta_comment(line: str) -> dict:
+    """Parse optional metadata line: <!-- src:zime | date:2026-04-17 | min:45 | url:... | note:"..." -->"""
+    m = re.search(r'<!--(.+?)-->', line)
+    if not m:
+        return {}
+    meta = {}
+    for part in m.group(1).split('|'):
+        part = part.strip()
+        kv = part.split(':', 1)
+        if len(kv) == 2:
+            k, v = kv[0].strip().lower(), kv[1].strip().strip('"')
+            meta[k] = v
+    return meta
+
+
 def parse_open_items():
-    """Parse OPEN-ITEMS.md into tasks for task-flow.html"""
+    """Parse OPEN-ITEMS.md into tasks.
+
+    Supports optional metadata line immediately after a task line:
+      - [ ] **[Customer]** Task text
+        <!-- src:zime | date:2026-04-17 | min:45 | url:https://... | note:"Quote" -->
+    """
     if not OPEN_ITEMS_FILE.exists():
         return []
+
+    priority_map = {'🔴': 'high', '🟡': 'medium', '🔵': 'low', '📋': 'low'}
+    lines = OPEN_ITEMS_FILE.read_text().splitlines()
 
     tasks = []
     current_section = ''
     current_priority = 'medium'
     task_id = 0
+    i = 0
 
-    priority_map = {'🔴': 'high', '🟡': 'medium', '🔵': 'low', '📋': 'low'}
+    while i < len(lines):
+        line_s = lines[i].strip()
 
-    with open(OPEN_ITEMS_FILE) as f:
-        for line in f:
-            line_s = line.strip()
+        if line_s.startswith('## '):
+            for emoji, prio in priority_map.items():
+                if emoji in line_s:
+                    current_priority = prio
+                    break
+            current_section = re.sub(r'^##\s*[🔴🟡🔵📋]\s*', '', line_s).strip()
+            i += 1
+            continue
 
-            if line_s.startswith('## '):
-                for emoji, prio in priority_map.items():
-                    if emoji in line_s:
-                        current_priority = prio
-                        break
-                current_section = re.sub(r'^##\s*[🔴🟡🔵📋]\s*', '', line_s).strip()
-                continue
+        if not (line_s.startswith('- [ ]') or line_s.startswith('- [~]')):
+            i += 1
+            continue
 
-            if not (line_s.startswith('- [ ]') or line_s.startswith('- [~]')):
-                continue
+        # Check for optional metadata on next line
+        meta = {}
+        if i + 1 < len(lines) and '<!--' in lines[i + 1]:
+            meta = _parse_meta_comment(lines[i + 1])
+            i += 1  # consume metadata line
 
-            status = 'in_progress' if '[~]' in line_s else 'pending'
-            text = re.sub(r'^- \[[~ ]\]\s*', '', line_s)
+        status = 'in_progress' if '[~]' in line_s else 'pending'
+        text = re.sub(r'^- \[[~ ]\]\s*', '', line_s)
 
-            # Extract [CUSTOMER] tag like **[NAF]** Prepare response...
-            customer_match = re.match(r'\*\*\[([^\]]+)\]\*\*\s*(.*)', text)
-            if customer_match:
-                customer = customer_match.group(1)
-                task_text = customer_match.group(2)
-            else:
-                customer = current_section
-                task_text = text
+        customer_match = re.match(r'\*\*\[([^\]]+)\]\*\*\s*(.*)', text)
+        if customer_match:
+            customer = customer_match.group(1)
+            task_text = customer_match.group(2)
+        else:
+            customer = current_section
+            task_text = text
 
-            # Extract priority override like **MEDIUM** Fix Telegram...
-            prio_override = None
-            prio_match = re.match(r'\*\*(HIGH|MEDIUM|LOW)\*\*\s*(.*)', task_text)
-            if prio_match:
-                prio_override = prio_match.group(1).lower()
-                task_text = prio_match.group(2)
+        prio_override = None
+        prio_match = re.match(r'\*\*(HIGH|MEDIUM|LOW|URGENT)\*\*\s*(.*)', task_text, re.IGNORECASE)
+        if prio_match:
+            raw = prio_match.group(1).upper()
+            prio_override = 'high' if raw in ('HIGH', 'URGENT') else raw.lower()
+            task_text = prio_match.group(2)
 
-            task_id += 1
-            tasks.append({
-                'id': f'task-{task_id}',
-                'title': task_text,
-                'description': f'[{customer}]',
-                'type': 'follow_up',
-                'priority': prio_override or current_priority,
-                'status': status,
-                'customer': customer,
-                'source': current_section,
-                'context': task_text,
-                'proposed_response': None,
-                'from': None,
-                'action_items': None,
-                'meeting_time': None,
-            })
+        # Strip leading **[NEW]** tags
+        task_text = re.sub(r'^\*\*\[NEW\]\*\*\s*', '', task_text)
+
+        task_id += 1
+        tasks.append({
+            'id': f'task-{task_id}',
+            'title': task_text,
+            'description': f'[{customer}]',
+            'type': 'follow_up',
+            'priority': prio_override or current_priority,
+            'status': status,
+            'customer': customer,
+            'source': current_section,
+            # Enrichment fields (from optional <!-- --> metadata line)
+            'src_type':  meta.get('src', None),       # 'zime' | 'email' | 'teams' | 'calendar'
+            'src_url':   meta.get('url', None),        # direct link
+            'src_date':  meta.get('date', None),       # YYYY-MM-DD
+            'src_min':   meta.get('min', None),        # Zime transcript minute
+            'src_note':  meta.get('note', None),       # quote / context snippet
+            'src_from':  meta.get('from', None),       # email sender
+            'src_subject': meta.get('subject', None),  # email subject
+            'proposed_response': None,
+            'action_items': None,
+        })
+        i += 1
 
     return tasks
 
