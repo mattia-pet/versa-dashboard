@@ -418,6 +418,10 @@
             font-size: 0.7rem;
         }
 
+        .modal-stat { cursor: default; }
+        .modal-stat[onclick] { cursor: pointer; }
+        .modal-stat[onclick]:hover { background: var(--bg-hover); border-color: var(--accent); }
+
         .pill-tickets {
             font-size: 0.65rem;
             color: var(--warning);
@@ -710,6 +714,8 @@
 
         let activeCustomer = null;
         const TICKET_CUSTOMERS = ['Backblaze', 'NM DOH']; // customers with Freshdesk company IDs
+        let _currentTickets = [];   // tickets for the active customer
+        let _currentFilter = 'all'; // active filter: 'all' | 'overdue' | 'pending' | 'open' | 'tasks'
 
         // Load data on start
         document.addEventListener('DOMContentLoaded', async () => {
@@ -986,10 +992,10 @@
                     </div>
                 </div>`;
 
-            // Stats
+            // Stats (non-ticket customers)
             const highCount = customerTasks.filter(t => t.priority === 'high').length;
             document.getElementById('ticketPanelStats').innerHTML = `
-                <div class="modal-stat"><span>${customerTasks.length}</span>Tasks</div>
+                <div class="modal-stat" onclick="filterCustomerView('tasks')" style="cursor:pointer"><span>${customerTasks.length}</span>Tasks</div>
                 ${highCount > 0 ? `<div class="modal-stat"><span style="color:var(--danger)">${highCount}</span>High</div>` : ''}
             `;
 
@@ -1000,51 +1006,85 @@
                     const res = await fetch(`${API}/api/customers/${name}/tickets`);
                     const data = await res.json();
                     const tickets = data.tickets || [];
+                    _currentTickets = tickets;
+                    _currentFilter = 'all';
                     const overdue = tickets.filter(t => t.status && t.status.includes('OVERDUE')).length;
                     const pending = tickets.filter(t => t.status === 'Pending').length;
 
-                    document.getElementById('ticketPanelStats').innerHTML = `
-                        <div class="modal-stat"><span>${customerTasks.length}</span>Tasks</div>
-                        <div class="modal-stat"><span>${tickets.length}</span>Tickets</div>
-                        ${overdue > 0 ? `<div class="modal-stat"><span style="color:var(--danger)">${overdue}</span>OVERDUE</div>` : ''}
-                        ${pending > 0 ? `<div class="modal-stat"><span style="color:var(--warning)">${pending}</span>Pending</div>` : ''}
-                    `;
+                    document.getElementById('ticketPanelStats').innerHTML = renderStatPills(customerTasks.length, tickets.length, overdue, pending);
 
                     const cachedAt = data.cached_at ? `<span style="color:var(--text-dim);font-size:0.7rem;margin-left:0.5rem">cached ${data.cached_at}</span>` : '';
                     const refreshBtn = `<button onclick="refreshTickets('${name}')" style="background:none;border:1px solid var(--border);color:var(--text-dim);padding:0.2rem 0.5rem;border-radius:4px;cursor:pointer;font-size:0.72rem;margin-left:0.5rem">↻ Refresh</button>`;
 
-                    const ticketTable = tickets.length > 0 ? `
+                    const ticketSection = `
                         <div style="font-size:0.75rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:0.6rem;display:flex;align-items:center">
                             Support Tickets (${tickets.length})${cachedAt}${refreshBtn}
                         </div>
-                        <table class="ticket-table">
-                            <thead><tr><th>ID</th><th>Title</th><th>Status</th><th>Priority</th><th>Requester</th><th>Note</th></tr></thead>
-                            <tbody>
-                                ${tickets.map(t => {
-                                    const s = t.status || '';
-                                    const cls = s.includes('OVERDUE') ? 'status-awaiting' : s === 'Open' ? 'status-processing' : 'status-awaiting';
-                                    const noteStyle = s.includes('OVERDUE') || (t.note||'').includes('Overdue') ? 'color:var(--danger)' : '';
-                                    const priColor = t.priority==='High'||t.priority==='Urgent' ? 'var(--danger)' : t.priority==='Medium' ? 'var(--warning)' : 'var(--text-dim)';
-                                    return `<tr>
-                                        <td><span class="ticket-id" onclick="openTicket(${t.id})">#${t.id}</span></td>
-                                        <td class="ticket-title">${t.title}</td>
-                                        <td><span class="ticket-status ${cls}">${t.status}</span></td>
-                                        <td style="font-size:0.75rem;color:${priColor};font-weight:600">${t.priority||''}</td>
-                                        <td style="font-size:0.75rem;color:var(--text-dim)">${t.opened_by||''}</td>
-                                        <td style="font-size:0.75rem;${noteStyle}">${t.note||''}</td>
-                                    </tr>`;
-                                }).join('')}
-                            </tbody>
-                        </table>` : `<div style="color:var(--text-dim);margin-bottom:0.5rem">No open tickets${refreshBtn}</div>`;
+                        <div id="ticketTableWrap">${renderTicketRows(tickets)}</div>`;
 
                     // Tickets FIRST, tasks collapsed below
-                    document.getElementById('ticketPanelContent').innerHTML = ticketTable + tasksHtml;
+                    document.getElementById('ticketPanelContent').innerHTML = (tickets.length > 0 ? ticketSection : `<div style="color:var(--text-dim);margin-bottom:0.5rem">No open tickets${refreshBtn}</div>`) + tasksHtml;
                 } catch(e) {
                     document.getElementById('ticketPanelContent').innerHTML = '<div style="color:var(--danger)">Failed to load tickets</div>' + tasksHtml;
                 }
             } else {
                 document.getElementById('ticketPanelContent').innerHTML = tasksHtml;
             }
+        }
+
+        function renderTicketRows(tickets) {
+            if (!tickets.length) return '<div style="color:var(--text-dim)">No tickets match this filter</div>';
+            return `<table class="ticket-table">
+                <thead><tr><th>ID</th><th>Title</th><th>Status</th><th>Priority</th><th>Requester</th><th>Note</th></tr></thead>
+                <tbody>${tickets.map(t => {
+                    const s = t.status || '';
+                    const cls = s.includes('OVERDUE') ? 'status-awaiting' : s === 'Open' ? 'status-processing' : 'status-awaiting';
+                    const noteStyle = s.includes('OVERDUE') || (t.note||'').includes('Overdue') ? 'color:var(--danger)' : '';
+                    const priColor = t.priority==='High'||t.priority==='Urgent' ? 'var(--danger)' : t.priority==='Medium' ? 'var(--warning)' : 'var(--text-dim)';
+                    return `<tr>
+                        <td><span class="ticket-id" onclick="openTicket(${t.id})">#${t.id}</span></td>
+                        <td class="ticket-title">${t.title}</td>
+                        <td><span class="ticket-status ${cls}">${t.status}</span></td>
+                        <td style="font-size:0.75rem;color:${priColor};font-weight:600">${t.priority||''}</td>
+                        <td style="font-size:0.75rem;color:var(--text-dim)">${t.opened_by||''}</td>
+                        <td style="font-size:0.75rem;${noteStyle}">${t.note||''}</td>
+                    </tr>`;
+                }).join('')}</tbody>
+            </table>`;
+        }
+
+        function renderStatPills(taskCount, ticketCount, overdue, pending) {
+            const pill = (label, count, filter, color) =>
+                `<div class="modal-stat" id="pill-${filter}" onclick="filterCustomerView('${filter}')" style="cursor:pointer;transition:opacity 0.15s">
+                    <span style="color:${color||'var(--accent)'}">${count}</span>${label}
+                </div>`;
+            return pill('Tasks', taskCount, 'tasks', 'var(--accent)')
+                 + pill('Tickets', ticketCount, 'all', 'var(--accent)')
+                 + (overdue > 0 ? pill('OVERDUE', overdue, 'overdue', 'var(--danger)') : '')
+                 + (pending > 0 ? pill('Pending', pending, 'pending', 'var(--warning)') : '');
+        }
+
+        function filterCustomerView(filter) {
+            _currentFilter = filter;
+            // Highlight active pill
+            ['tasks','all','overdue','pending'].forEach(f => {
+                const el = document.getElementById('pill-' + f);
+                if (el) el.style.opacity = (f === filter) ? '1' : '0.45';
+            });
+            // Show/hide tasks section
+            const tasksSection = document.querySelector('#ticketPanelContent > div:last-child');
+            if (filter === 'tasks') {
+                if (tasksSection) tasksSection.scrollIntoView({behavior:'smooth'});
+                return;
+            }
+            // Filter ticket table
+            const wrap = document.getElementById('ticketTableWrap');
+            if (!wrap) return;
+            let filtered = _currentTickets;
+            if (filter === 'overdue') filtered = _currentTickets.filter(t => t.status && t.status.includes('OVERDUE'));
+            if (filter === 'pending') filtered = _currentTickets.filter(t => t.status === 'Pending');
+            if (filter === 'open')    filtered = _currentTickets.filter(t => t.status === 'Open');
+            wrap.innerHTML = renderTicketRows(filtered);
         }
 
         function openTicket(id) {
